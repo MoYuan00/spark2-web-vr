@@ -1,89 +1,33 @@
-import { CameraControls } from "@react-three/drei";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import type { ChangeEvent } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type Group, Matrix4, Quaternion, Vector3 } from "three";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { WebGLRenderer } from "three";
-import { SparkRenderer } from "./components/spark/SparkRenderer";
-import { SplatMesh } from "./components/spark/SplatMesh";
-
-type AvailableSplat = {
-  label: string;
-  name: string;
-  url: string;
-};
-
-type SplatSection = {
-  items: AvailableSplat[];
-  title: string;
-};
-
-const SPLAT_SECTIONS: SplatSection[] = [
-  {
-    title: "精选",
-    items: [
-      {
-        label: "Butterfly",
-        name: "butterfly.spz",
-        url: "/assets/splats/butterfly.spz",
-      },
-      {
-        label: "Cat",
-        name: "cat.spz",
-        url: "/assets/splats/cat.spz",
-      },
-      {
-        label: "2",
-        name: "2.spz",
-        url: "/assets/splats/hometree.spz",
-      },
-    ],
-  },
-  {
-    title: "Food",
-    items: [
-      {
-        label: "Branzino Amarin",
-        name: "branzino-amarin.spz",
-        url: "/assets/splats/food/branzino-amarin.spz",
-      },
-    ],
-  },
-];
-
-const ALL_AVAILABLE_SPLATS = SPLAT_SECTIONS.flatMap((section) => section.items);
-
-const DEFAULT_SPLAT =
-  ALL_AVAILABLE_SPLATS.find((item) => item.name === "butterfly.spz") ??
-  ALL_AVAILABLE_SPLATS[0];
-
-if (!DEFAULT_SPLAT) {
-  throw new Error("No SPZ assets configured.");
-}
-
-const DEFAULT_SPLAT_URL = DEFAULT_SPLAT.url;
-const DEFAULT_SPLAT_NAME = DEFAULT_SPLAT.name;
-const XR_SESSION_MODES = ["immersive-vr", "immersive-ar"] as const;
-const XR_SESSION_OPTIONS: XRSessionInit = {
-  optionalFeatures: ["local-floor", "bounded-floor", "hand-tracking", "layers"],
-};
-
-type SceneProps = {
-  onRendererReady: (renderer: WebGLRenderer | null) => void;
-  splatUrl: string;
-  xrActive: boolean;
-};
+import { AvailableSplatPanel } from "./components/AvailableSplatPanel";
+import { FpsBadge } from "./components/FpsBadge";
+import { PerformancePanel } from "./components/PerformancePanel";
+import { TopToolbar } from "./components/TopToolbar";
+import { ViewerScene } from "./components/ViewerScene";
+import {
+  type AvailableSplat,
+  DEFAULT_PERFORMANCE_SETTINGS,
+  DEFAULT_SPLAT_NAME,
+  DEFAULT_SPLAT_URL,
+  type PerformanceSettings,
+  XR_SESSION_MODES,
+  XR_SESSION_OPTIONS,
+  type XrSessionMode,
+} from "./viewer-config";
 
 function App() {
   const [splatUrl, setSplatUrl] = useState(DEFAULT_SPLAT_URL);
   const [splatName, setSplatName] = useState(DEFAULT_SPLAT_NAME);
   const [renderer, setRenderer] = useState<WebGLRenderer | null>(null);
-  const [xrMode, setXrMode] = useState<
-    (typeof XR_SESSION_MODES)[number] | null
-  >(null);
+  const [xrMode, setXrMode] = useState<XrSessionMode | null>(null);
   const [xrSession, setXrSession] = useState<XRSession | null>(null);
   const [xrBusy, setXrBusy] = useState(false);
   const [xrMessage, setXrMessage] = useState<string | null>(null);
+  const [performance, setPerformance] = useState(DEFAULT_PERFORMANCE_SETTINGS);
+  const [fps, setFps] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const objectUrlRef = useRef<string | null>(null);
   const xrSessionRef = useRef<XRSession | null>(null);
@@ -129,7 +73,6 @@ function App() {
 
     return () => {
       cancelled = true;
-
       releaseObjectUrl();
 
       if (xrSessionRef.current) {
@@ -191,6 +134,20 @@ function App() {
     },
     [releaseObjectUrl],
   );
+
+  const handlePerformanceChange = useCallback(
+    (key: keyof PerformanceSettings, value: number) => {
+      setPerformance((current) => ({
+        ...current,
+        [key]: value,
+      }));
+    },
+    [],
+  );
+
+  const handleResetPerformance = useCallback(() => {
+    setPerformance(DEFAULT_PERFORMANCE_SETTINGS);
+  }, []);
 
   const handleVrToggle = useCallback(async () => {
     if (xrBusy) {
@@ -271,319 +228,42 @@ function App() {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-neutral-950 text-white">
-      <Canvas gl={{ antialias: false }}>
-        <Scene
+      <Canvas dpr={performance.pixelRatio} gl={{ antialias: false }}>
+        <ViewerScene
+          onFpsChange={setFps}
           onRendererReady={setRenderer}
+          performance={performance}
           splatUrl={splatUrl}
           xrActive={xrSession !== null}
         />
       </Canvas>
 
-      <div className="pointer-events-none absolute inset-y-0 left-0 flex p-4">
-        <aside className="pointer-events-auto mt-20 flex w-72 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-white/15 bg-black/65 shadow-2xl backdrop-blur-md">
-          <div className="border-white/10 border-b p-4">
-            <p className="font-semibold text-cyan-300 text-sm tracking-wide">
-              可用 SPZ 列表
-            </p>
-            <p className="mt-1 text-white/60 text-xs">
-              点击条目即可切换当前显示的 Gaussian Splat。
-            </p>
-          </div>
-
-          <div className="flex-1 space-y-4 overflow-y-auto p-3">
-            {isLocalUpload ? (
-              <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3">
-                <p className="font-medium text-amber-200 text-sm">
-                  当前为本地上传
-                </p>
-                <p className="mt-1 truncate text-amber-100/80 text-xs">
-                  {splatName}
-                </p>
-              </div>
-            ) : null}
-
-            {SPLAT_SECTIONS.map((section) => (
-              <div className="space-y-2" key={section.title}>
-                <p className="text-white/45 text-xs uppercase tracking-[0.2em]">
-                  {section.title}
-                </p>
-                <div className="space-y-2">
-                  {section.items.map((item) => {
-                    const isActive = !isLocalUpload && splatUrl === item.url;
-
-                    return (
-                      <button
-                        className={`flex w-full flex-col rounded-xl border px-3 py-2 text-left transition ${
-                          isActive
-                            ? "border-cyan-400/50 bg-cyan-400/15 text-white"
-                            : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
-                        }`}
-                        key={item.url}
-                        onClick={() => handleSelectAvailableSplat(item)}
-                        type="button"
-                      >
-                        <span className="font-medium text-sm">
-                          {item.label}
-                        </span>
-                        <span className="mt-1 truncate text-white/50 text-xs">
-                          {item.name}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </aside>
-      </div>
-
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-4 pl-4 sm:pl-80">
-        <div className="pointer-events-auto flex w-full max-w-xl flex-col gap-4 rounded-2xl border border-white/15 bg-black/60 p-4 shadow-2xl backdrop-blur-md sm:flex-row sm:items-end sm:justify-between">
-          <div className="space-y-2">
-            <p className="font-semibold text-cyan-300 text-sm tracking-wide">
-              Spark SPZ 预览
-            </p>
-            <div>
-              <p className="text-white/50 text-xs uppercase tracking-[0.2em]">
-                当前模型
-              </p>
-              <p className="max-w-sm truncate text-sm text-white/90">
-                {splatName}
-              </p>
-            </div>
-            <p className="text-white/60 text-xs">
-              支持上传本地 .spz 文件、点击左侧列表切换场景，并切换到 WebXR
-              预览模式；Quest / Vision Pro 可在 XR 中按住并拖拽移动模型。
-            </p>
-            <p className="text-white/60 text-xs">
-              XR 支持：
-              {xrMode
-                ? xrMode === "immersive-ar"
-                  ? "当前环境仅检测到空间模式支持"
-                  : "检测到沉浸式 VR 支持"
-                : "当前浏览器/设备暂不可用"}
-            </p>
-            {xrMessage ? (
-              <p className="text-amber-300 text-xs">{xrMessage}</p>
-            ) : null}
-          </div>
-
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <input
-              ref={fileInputRef}
-              accept=".spz"
-              className="hidden"
-              onChange={handleSplatUpload}
-              type="file"
-            />
-            <button
-              className="rounded-full border border-cyan-400/40 bg-cyan-400/10 px-4 py-2 font-medium text-cyan-100 text-sm transition hover:bg-cyan-400/20"
-              onClick={handleUploadClick}
-              type="button"
-            >
-              上传 SPZ
-            </button>
-            <button
-              className="rounded-full border border-white/15 bg-white/10 px-4 py-2 font-medium text-sm text-white transition hover:bg-white/20"
-              onClick={handleResetSplat}
-              type="button"
-            >
-              恢复默认
-            </button>
-            <button
-              className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 font-medium text-emerald-100 text-sm transition enabled:hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-white/40"
-              disabled={!xrMode || !renderer || xrBusy}
-              onClick={() => void handleVrToggle()}
-              type="button"
-            >
-              {xrButtonLabel}
-            </button>
-          </div>
-        </div>
-      </div>
+      <AvailableSplatPanel
+        isLocalUpload={isLocalUpload}
+        onSelectAvailableSplat={handleSelectAvailableSplat}
+        splatName={splatName}
+        splatUrl={splatUrl}
+      />
+      <FpsBadge fps={fps} />
+      <PerformancePanel
+        onPerformanceChange={handlePerformanceChange}
+        onResetPerformance={handleResetPerformance}
+        performance={performance}
+      />
+      <TopToolbar
+        fileInputRef={fileInputRef}
+        onResetSplat={handleResetSplat}
+        onSplatUpload={handleSplatUpload}
+        onUploadClick={handleUploadClick}
+        onVrToggle={() => void handleVrToggle()}
+        splatName={splatName}
+        xrButtonLabel={xrButtonLabel}
+        xrMessage={xrMessage}
+        xrMode={xrMode}
+        xrToggleDisabled={!xrMode || !renderer || xrBusy}
+      />
     </div>
   );
 }
-
-/**
- * Separate `Scene` component to be used in the React Three Fiber `Canvas` component so that we can use React Three Fiber hooks like `useThree`
- */
-const Scene = ({ onRendererReady, splatUrl, xrActive }: SceneProps) => {
-  const renderer = useThree((state) => state.gl);
-  const splatRootRef = useRef<Group>(null);
-  const dragStateRef = useRef({
-    active: false,
-    dragDistance: 1.5,
-    inputSource: null as XRInputSource | null,
-    offset: new Vector3(),
-  });
-
-  const rayMatrix = useMemo(() => new Matrix4(), []);
-  const rayQuaternion = useMemo(() => new Quaternion(), []);
-  const rayOrigin = useMemo(() => new Vector3(), []);
-  const rayDirection = useMemo(() => new Vector3(), []);
-  const dragPoint = useMemo(() => new Vector3(), []);
-  const objectPosition = useMemo(() => new Vector3(), []);
-  const targetPosition = useMemo(() => new Vector3(), []);
-  const worldOffset = useMemo(() => new Vector3(), []);
-
-  useEffect(() => {
-    renderer.xr.enabled = true;
-    renderer.xr.setReferenceSpaceType("local-floor");
-    onRendererReady(renderer);
-
-    return () => {
-      onRendererReady(null);
-    };
-  }, [onRendererReady, renderer]);
-
-  const sparkRendererArgs = useMemo(() => {
-    return { renderer };
-  }, [renderer]);
-
-  const splatMeshArgs = useMemo(
-    () =>
-      ({
-        url: splatUrl,
-      }) as const,
-    [splatUrl],
-  );
-
-  const stopDragging = useCallback(() => {
-    dragStateRef.current.active = false;
-    dragStateRef.current.inputSource = null;
-  }, []);
-
-  const updateInputRay = useCallback(
-    (frame: XRFrame, inputSource: XRInputSource) => {
-      const referenceSpace = renderer.xr.getReferenceSpace();
-
-      if (!referenceSpace) {
-        return null;
-      }
-
-      const pose = frame.getPose(inputSource.targetRaySpace, referenceSpace);
-
-      if (!pose) {
-        return null;
-      }
-
-      rayMatrix.fromArray(pose.transform.matrix);
-      rayOrigin.setFromMatrixPosition(rayMatrix);
-      rayQuaternion.setFromRotationMatrix(rayMatrix);
-      rayDirection.set(0, 0, -1).applyQuaternion(rayQuaternion).normalize();
-
-      return {
-        direction: rayDirection,
-        origin: rayOrigin,
-      };
-    },
-    [rayDirection, rayMatrix, rayOrigin, rayQuaternion, renderer],
-  );
-
-  useEffect(() => {
-    if (!xrActive) {
-      stopDragging();
-      return;
-    }
-
-    const session = renderer.xr.getSession();
-
-    if (!session) {
-      return;
-    }
-
-    const handleSelectStart = (event: XRInputSourceEvent) => {
-      const splatRoot = splatRootRef.current;
-      const ray = updateInputRay(event.frame, event.inputSource);
-
-      if (!splatRoot || !ray) {
-        return;
-      }
-
-      splatRoot.getWorldPosition(objectPosition);
-      worldOffset.copy(objectPosition).sub(ray.origin);
-
-      const dragDistance = Math.max(worldOffset.dot(ray.direction), 0.75);
-
-      dragPoint.copy(ray.origin).addScaledVector(ray.direction, dragDistance);
-
-      if (objectPosition.distanceTo(dragPoint) > 1.5) {
-        return;
-      }
-
-      dragStateRef.current.active = true;
-      dragStateRef.current.dragDistance = dragDistance;
-      dragStateRef.current.inputSource = event.inputSource;
-      dragStateRef.current.offset.copy(objectPosition).sub(dragPoint);
-    };
-
-    const handleSelectEnd = (event: XRInputSourceEvent) => {
-      if (dragStateRef.current.inputSource === event.inputSource) {
-        stopDragging();
-      }
-    };
-
-    session.addEventListener("selectstart", handleSelectStart);
-    session.addEventListener("selectend", handleSelectEnd);
-    session.addEventListener("end", stopDragging);
-
-    return () => {
-      session.removeEventListener("selectstart", handleSelectStart);
-      session.removeEventListener("selectend", handleSelectEnd);
-      session.removeEventListener("end", stopDragging);
-      stopDragging();
-    };
-  }, [
-    dragPoint,
-    objectPosition,
-    renderer,
-    stopDragging,
-    updateInputRay,
-    worldOffset,
-    xrActive,
-  ]);
-
-  useFrame((_, __, frame) => {
-    const splatRoot = splatRootRef.current;
-    const dragState = dragStateRef.current;
-
-    if (
-      !xrActive ||
-      !frame ||
-      !splatRoot ||
-      !dragState.active ||
-      !dragState.inputSource
-    ) {
-      return;
-    }
-
-    const ray = updateInputRay(frame, dragState.inputSource);
-
-    if (!ray) {
-      return;
-    }
-
-    dragPoint
-      .copy(ray.origin)
-      .addScaledVector(ray.direction, dragState.dragDistance);
-    targetPosition.copy(dragPoint).add(dragState.offset);
-    splatRoot.position.copy(targetPosition);
-  });
-
-  return (
-    <>
-      {!xrActive ? <CameraControls /> : null}
-      <SparkRenderer args={[sparkRendererArgs]}>
-        <group ref={splatRootRef}>
-          <group rotation={[Math.PI, 0, 0]}>
-            <SplatMesh key={splatUrl} args={[splatMeshArgs]} />
-          </group>
-        </group>
-      </SparkRenderer>
-    </>
-  );
-};
 
 export default App;

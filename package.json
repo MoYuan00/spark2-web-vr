@@ -15,18 +15,18 @@
   "dependencies": {
     "@react-three/drei": "^10.5.1",
     "@react-three/fiber": "^9.2.0",
-    "@sparkjsdev/spark": "^0.1.6",
+    "@sparkjsdev/spark": "^2.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "stats.js": "^0.17.0",
-    "three": "^0.178.0"
+    "three": "^0.180.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@tailwindcss/vite": "^4.1.11",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
-    "@types/three": "^0.178.1",
+    "@types/three": "^0.180.0",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^4.6.0",
     "tailwindcss": "^4.1.7",
