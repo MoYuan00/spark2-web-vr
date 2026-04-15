@@ -1,8 +1,8 @@
 import { CameraControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import type { SplatMesh as SparkSplatMesh } from "@sparkjsdev/spark";
 import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type Group, Matrix4, Quaternion, Vector3 } from "three";
 import type { WebGLRenderer } from "three";
 import { SparkRenderer } from "./components/spark/SparkRenderer";
 import { SplatMesh } from "./components/spark/SplatMesh";
@@ -36,7 +36,7 @@ const SPLAT_SECTIONS: SplatSection[] = [
         label: "2",
         name: "2.spz",
         url: "/assets/splats/hometree.spz",
-      }
+      },
     ],
   },
   {
@@ -46,7 +46,7 @@ const SPLAT_SECTIONS: SplatSection[] = [
         label: "Branzino Amarin",
         name: "branzino-amarin.spz",
         url: "/assets/splats/food/branzino-amarin.spz",
-      }
+      },
     ],
   },
 ];
@@ -354,7 +354,7 @@ function App() {
             </div>
             <p className="text-white/60 text-xs">
               支持上传本地 .spz 文件、点击左侧列表切换场景，并切换到 WebXR
-              预览模式。
+              预览模式；Quest / Vision Pro 可在 XR 中按住并拖拽移动模型。
             </p>
             <p className="text-white/60 text-xs">
               XR 支持：
@@ -411,10 +411,26 @@ function App() {
  */
 const Scene = ({ onRendererReady, splatUrl, xrActive }: SceneProps) => {
   const renderer = useThree((state) => state.gl);
-  const meshRef = useRef<SparkSplatMesh>(null);
+  const splatRootRef = useRef<Group>(null);
+  const dragStateRef = useRef({
+    active: false,
+    dragDistance: 1.5,
+    inputSource: null as XRInputSource | null,
+    offset: new Vector3(),
+  });
+
+  const rayMatrix = useMemo(() => new Matrix4(), []);
+  const rayQuaternion = useMemo(() => new Quaternion(), []);
+  const rayOrigin = useMemo(() => new Vector3(), []);
+  const rayDirection = useMemo(() => new Vector3(), []);
+  const dragPoint = useMemo(() => new Vector3(), []);
+  const objectPosition = useMemo(() => new Vector3(), []);
+  const targetPosition = useMemo(() => new Vector3(), []);
+  const worldOffset = useMemo(() => new Vector3(), []);
 
   useEffect(() => {
     renderer.xr.enabled = true;
+    renderer.xr.setReferenceSpaceType("local-floor");
     onRendererReady(renderer);
 
     return () => {
@@ -434,18 +450,136 @@ const Scene = ({ onRendererReady, splatUrl, xrActive }: SceneProps) => {
     [splatUrl],
   );
 
-  useFrame((_, delta) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y += 0.5 * delta;
+  const stopDragging = useCallback(() => {
+    dragStateRef.current.active = false;
+    dragStateRef.current.inputSource = null;
+  }, []);
+
+  const updateInputRay = useCallback(
+    (frame: XRFrame, inputSource: XRInputSource) => {
+      const referenceSpace = renderer.xr.getReferenceSpace();
+
+      if (!referenceSpace) {
+        return null;
+      }
+
+      const pose = frame.getPose(inputSource.targetRaySpace, referenceSpace);
+
+      if (!pose) {
+        return null;
+      }
+
+      rayMatrix.fromArray(pose.transform.matrix);
+      rayOrigin.setFromMatrixPosition(rayMatrix);
+      rayQuaternion.setFromRotationMatrix(rayMatrix);
+      rayDirection.set(0, 0, -1).applyQuaternion(rayQuaternion).normalize();
+
+      return {
+        direction: rayDirection,
+        origin: rayOrigin,
+      };
+    },
+    [rayDirection, rayMatrix, rayOrigin, rayQuaternion, renderer],
+  );
+
+  useEffect(() => {
+    if (!xrActive) {
+      stopDragging();
+      return;
     }
+
+    const session = renderer.xr.getSession();
+
+    if (!session) {
+      return;
+    }
+
+    const handleSelectStart = (event: XRInputSourceEvent) => {
+      const splatRoot = splatRootRef.current;
+      const ray = updateInputRay(event.frame, event.inputSource);
+
+      if (!splatRoot || !ray) {
+        return;
+      }
+
+      splatRoot.getWorldPosition(objectPosition);
+      worldOffset.copy(objectPosition).sub(ray.origin);
+
+      const dragDistance = Math.max(worldOffset.dot(ray.direction), 0.75);
+
+      dragPoint.copy(ray.origin).addScaledVector(ray.direction, dragDistance);
+
+      if (objectPosition.distanceTo(dragPoint) > 1.5) {
+        return;
+      }
+
+      dragStateRef.current.active = true;
+      dragStateRef.current.dragDistance = dragDistance;
+      dragStateRef.current.inputSource = event.inputSource;
+      dragStateRef.current.offset.copy(objectPosition).sub(dragPoint);
+    };
+
+    const handleSelectEnd = (event: XRInputSourceEvent) => {
+      if (dragStateRef.current.inputSource === event.inputSource) {
+        stopDragging();
+      }
+    };
+
+    session.addEventListener("selectstart", handleSelectStart);
+    session.addEventListener("selectend", handleSelectEnd);
+    session.addEventListener("end", stopDragging);
+
+    return () => {
+      session.removeEventListener("selectstart", handleSelectStart);
+      session.removeEventListener("selectend", handleSelectEnd);
+      session.removeEventListener("end", stopDragging);
+      stopDragging();
+    };
+  }, [
+    dragPoint,
+    objectPosition,
+    renderer,
+    stopDragging,
+    updateInputRay,
+    worldOffset,
+    xrActive,
+  ]);
+
+  useFrame((_, __, frame) => {
+    const splatRoot = splatRootRef.current;
+    const dragState = dragStateRef.current;
+
+    if (
+      !xrActive ||
+      !frame ||
+      !splatRoot ||
+      !dragState.active ||
+      !dragState.inputSource
+    ) {
+      return;
+    }
+
+    const ray = updateInputRay(frame, dragState.inputSource);
+
+    if (!ray) {
+      return;
+    }
+
+    dragPoint
+      .copy(ray.origin)
+      .addScaledVector(ray.direction, dragState.dragDistance);
+    targetPosition.copy(dragPoint).add(dragState.offset);
+    splatRoot.position.copy(targetPosition);
   });
 
   return (
     <>
       {!xrActive ? <CameraControls /> : null}
       <SparkRenderer args={[sparkRendererArgs]}>
-        <group rotation={[Math.PI, 0, 0]}>
-          <SplatMesh key={splatUrl} ref={meshRef} args={[splatMeshArgs]} />
+        <group ref={splatRootRef}>
+          <group rotation={[Math.PI, 0, 0]}>
+            <SplatMesh key={splatUrl} args={[splatMeshArgs]} />
+          </group>
         </group>
       </SparkRenderer>
     </>
