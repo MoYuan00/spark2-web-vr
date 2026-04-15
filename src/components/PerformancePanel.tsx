@@ -92,7 +92,7 @@ export function PerformancePanel({
           />
           <SliderControl
             description="Spark 文档建议 WebXR 走 LoD；预算越小，越稳但细节更少。"
-            max={1200000}
+            max={50000000}
             min={150000}
             onChange={(value) => {
               onPerformanceChange("lodSplatCount", value);
