@@ -71,6 +71,12 @@
     "url": "https://sparkjs.dev/assets/splats/food/tomahawk-niku.spz",
     "directory": "splats/food"
   },
+
+  "hometree.spz": {
+    "url": "https://sparkjs.dev/assets/splats/i/hometree.spz",
+    "directory": "splats/hometree"
+  },
+
   "rubberduck.glb": {
     "url": "https://sparkjs.dev/assets/models/rubberduck.glb",
     "directory": "models"

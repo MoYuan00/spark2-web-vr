@@ -7,8 +7,62 @@ import type { WebGLRenderer } from "three";
 import { SparkRenderer } from "./components/spark/SparkRenderer";
 import { SplatMesh } from "./components/spark/SplatMesh";
 
-const DEFAULT_SPLAT_URL = "/assets/splats/butterfly.spz";
-const DEFAULT_SPLAT_NAME = "butterfly.spz";
+type AvailableSplat = {
+  label: string;
+  name: string;
+  url: string;
+};
+
+type SplatSection = {
+  items: AvailableSplat[];
+  title: string;
+};
+
+const SPLAT_SECTIONS: SplatSection[] = [
+  {
+    title: "精选",
+    items: [
+      {
+        label: "Butterfly",
+        name: "butterfly.spz",
+        url: "/assets/splats/butterfly.spz",
+      },
+      {
+        label: "Cat",
+        name: "cat.spz",
+        url: "/assets/splats/cat.spz",
+      },
+      {
+        label: "2",
+        name: "2.spz",
+        url: "/assets/splats/hometree.spz",
+      }
+    ],
+  },
+  {
+    title: "Food",
+    items: [
+      {
+        label: "Branzino Amarin",
+        name: "branzino-amarin.spz",
+        url: "/assets/splats/food/branzino-amarin.spz",
+      }
+    ],
+  },
+];
+
+const ALL_AVAILABLE_SPLATS = SPLAT_SECTIONS.flatMap((section) => section.items);
+
+const DEFAULT_SPLAT =
+  ALL_AVAILABLE_SPLATS.find((item) => item.name === "butterfly.spz") ??
+  ALL_AVAILABLE_SPLATS[0];
+
+if (!DEFAULT_SPLAT) {
+  throw new Error("No SPZ assets configured.");
+}
+
+const DEFAULT_SPLAT_URL = DEFAULT_SPLAT.url;
+const DEFAULT_SPLAT_NAME = DEFAULT_SPLAT.name;
 const XR_SESSION_MODES = ["immersive-vr", "immersive-ar"] as const;
 const XR_SESSION_OPTIONS: XRSessionInit = {
   optionalFeatures: ["local-floor", "bounded-floor", "hand-tracking", "layers"],
@@ -124,6 +178,20 @@ function App() {
     }
   }, [releaseObjectUrl]);
 
+  const handleSelectAvailableSplat = useCallback(
+    (selectedSplat: AvailableSplat) => {
+      releaseObjectUrl();
+      setSplatUrl(selectedSplat.url);
+      setSplatName(selectedSplat.name);
+      setXrMessage(null);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    },
+    [releaseObjectUrl],
+  );
+
   const handleVrToggle = useCallback(async () => {
     if (xrBusy) {
       return;
@@ -199,6 +267,8 @@ function App() {
         ? "进入空间预览"
         : "进入 VR";
 
+  const isLocalUpload = splatUrl.startsWith("blob:");
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-neutral-950 text-white">
       <Canvas gl={{ antialias: false }}>
@@ -209,7 +279,66 @@ function App() {
         />
       </Canvas>
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-4">
+      <div className="pointer-events-none absolute inset-y-0 left-0 flex p-4">
+        <aside className="pointer-events-auto mt-20 flex w-72 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-white/15 bg-black/65 shadow-2xl backdrop-blur-md">
+          <div className="border-white/10 border-b p-4">
+            <p className="font-semibold text-cyan-300 text-sm tracking-wide">
+              可用 SPZ 列表
+            </p>
+            <p className="mt-1 text-white/60 text-xs">
+              点击条目即可切换当前显示的 Gaussian Splat。
+            </p>
+          </div>
+
+          <div className="flex-1 space-y-4 overflow-y-auto p-3">
+            {isLocalUpload ? (
+              <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3">
+                <p className="font-medium text-amber-200 text-sm">
+                  当前为本地上传
+                </p>
+                <p className="mt-1 truncate text-amber-100/80 text-xs">
+                  {splatName}
+                </p>
+              </div>
+            ) : null}
+
+            {SPLAT_SECTIONS.map((section) => (
+              <div className="space-y-2" key={section.title}>
+                <p className="text-white/45 text-xs uppercase tracking-[0.2em]">
+                  {section.title}
+                </p>
+                <div className="space-y-2">
+                  {section.items.map((item) => {
+                    const isActive = !isLocalUpload && splatUrl === item.url;
+
+                    return (
+                      <button
+                        className={`flex w-full flex-col rounded-xl border px-3 py-2 text-left transition ${
+                          isActive
+                            ? "border-cyan-400/50 bg-cyan-400/15 text-white"
+                            : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
+                        }`}
+                        key={item.url}
+                        onClick={() => handleSelectAvailableSplat(item)}
+                        type="button"
+                      >
+                        <span className="font-medium text-sm">
+                          {item.label}
+                        </span>
+                        <span className="mt-1 truncate text-white/50 text-xs">
+                          {item.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </aside>
+      </div>
+
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-4 pl-4 sm:pl-80">
         <div className="pointer-events-auto flex w-full max-w-xl flex-col gap-4 rounded-2xl border border-white/15 bg-black/60 p-4 shadow-2xl backdrop-blur-md sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-2">
             <p className="font-semibold text-cyan-300 text-sm tracking-wide">
@@ -224,7 +353,8 @@ function App() {
               </p>
             </div>
             <p className="text-white/60 text-xs">
-              支持上传本地 .spz 文件即时替换场景内容，并切换到 WebXR 预览模式。
+              支持上传本地 .spz 文件、点击左侧列表切换场景，并切换到 WebXR
+              预览模式。
             </p>
             <p className="text-white/60 text-xs">
               XR 支持：
