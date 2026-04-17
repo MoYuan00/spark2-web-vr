@@ -3,12 +3,13 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { type Group, Matrix4, Quaternion, Vector3 } from "three";
 import type { WebGLRenderer } from "three";
-import type { PerformanceSettings } from "../viewer-config";
+import type { LodProgress, PerformanceSettings } from "../viewer-config";
 import { SparkRenderer } from "./spark/SparkRenderer";
 import { SplatMesh } from "./spark/SplatMesh";
 
 type ViewerSceneProps = {
   onFpsChange: (fps: number) => void;
+  onLodProgress: (progress: LodProgress) => void;
   onRendererReady: (renderer: WebGLRenderer | null) => void;
   performance: PerformanceSettings;
   splatUrl: string;
@@ -17,6 +18,7 @@ type ViewerSceneProps = {
 
 export function ViewerScene({
   onFpsChange,
+  onLodProgress,
   onRendererReady,
   performance,
   splatUrl,
@@ -34,7 +36,6 @@ export function ViewerScene({
     inputSource: null as XRInputSource | null,
     offset: new Vector3(),
   });
-
   const rayMatrix = useMemo(() => new Matrix4(), []);
   const rayQuaternion = useMemo(() => new Quaternion(), []);
   const rayOrigin = useMemo(() => new Vector3(), []);
@@ -74,13 +75,33 @@ export function ViewerScene({
     };
   }, [performance, renderer]);
 
+  const handleSplatLoad = useCallback(
+    (mesh: { numSplats: number }) => {
+      const numSplats = mesh.numSplats ?? 0;
+      const fileName = splatUrl.split("/").pop() ?? "";
+
+      console.log("[LoD] Splat loaded:", { numSplats, fileName });
+
+      // [LoD] Splat loaded 后取消进度条
+      onLodProgress({
+        processedSplats: 100,
+        totalSplats: 100,
+        isProcessing: false,
+        fileName: fileName,
+        estimatedTimeRemaining: 0,
+      });
+    },
+    [splatUrl, onLodProgress],
+  );
+
   const splatMeshArgs = useMemo(
     () =>
       ({
         lod: true,
         url: splatUrl,
+        onLoad: handleSplatLoad,
       }) as const,
-    [splatUrl],
+    [splatUrl, handleSplatLoad],
   );
 
   const stopDragging = useCallback(() => {

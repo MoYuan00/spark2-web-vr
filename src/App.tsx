@@ -10,10 +10,12 @@ import { ViewerScene } from "./components/ViewerScene";
 import {
   type AvailableSplat,
   DEFAULT_DOWNLOAD_PROGRESS,
+  DEFAULT_LOD_PROGRESS,
   DEFAULT_PERFORMANCE_SETTINGS,
   DEFAULT_SPLAT_NAME,
   DEFAULT_SPLAT_URL,
   type DownloadProgress,
+  type LodProgress,
   type PerformanceSettings,
   XR_SESSION_MODES,
   XR_SESSION_OPTIONS,
@@ -31,6 +33,8 @@ function App() {
   const [performance, setPerformance] = useState(DEFAULT_PERFORMANCE_SETTINGS);
   const [fps, setFps] = useState(0);
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress>(DEFAULT_DOWNLOAD_PROGRESS);
+  const [lodProgress, setLodProgress] = useState<LodProgress>(DEFAULT_LOD_PROGRESS);
+  const lodStartTimeRef = useRef<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const objectUrlRef = useRef<string | null>(null);
   const xrSessionRef = useRef<XRSession | null>(null);
@@ -133,6 +137,16 @@ function App() {
           isDownloading: false,
         }));
 
+        // 开始 LoD 处理进度（将在 SplatMesh onLoad 中结束）
+        lodStartTimeRef.current = window.performance.now(); // 重置开始时间
+        setLodProgress({
+          processedSplats: 0,
+          totalSplats: 100, // 百分比
+          isProcessing: true,
+          fileName: file.name,
+          estimatedTimeRemaining: 20, // 20 秒倒计时
+        });
+
         const nextObjectUrl = URL.createObjectURL(file);
         releaseObjectUrl(nextObjectUrl);
         objectUrlRef.current = nextObjectUrl;
@@ -151,17 +165,6 @@ function App() {
     },
     [releaseObjectUrl],
   );
-
-  const handleResetSplat = useCallback(() => {
-    releaseObjectUrl();
-    setSplatUrl(DEFAULT_SPLAT_URL);
-    setSplatName(DEFAULT_SPLAT_NAME);
-    setXrMessage(null);
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  }, [releaseObjectUrl]);
 
   const formatSpeed = useCallback((bytesPerSecond: number): string => {
     if (bytesPerSecond === 0) return "0 B/s";
@@ -237,6 +240,16 @@ function App() {
           isDownloading: false,
         }));
 
+        // 开始 LoD 处理进度（将在 SplatMesh onLoad 中结束）
+        lodStartTimeRef.current = window.performance.now(); // 重置开始时间
+        setLodProgress({
+          processedSplats: 0,
+          totalSplats: 100, // 百分比
+          isProcessing: true,
+          fileName,
+          estimatedTimeRemaining: 20, // 20 秒倒计时
+        });
+
         return blob;
       } catch (error) {
         setDownloadProgress(DEFAULT_DOWNLOAD_PROGRESS);
@@ -281,6 +294,36 @@ function App() {
     },
     [],
   );
+
+  const handleLodProgress = useCallback((progress: LodProgress) => {
+    setLodProgress(progress);
+  }, []);
+
+  // LoD 进度更新 - 固定 20 秒倒计时
+  useEffect(() => {
+    if (!lodProgress.isProcessing) return;
+
+    const intervalId = setInterval(() => {
+      setLodProgress((prev) => {
+        if (!prev.isProcessing) return prev;
+
+        const elapsed = (window.performance.now() - lodStartTimeRef.current) / 1000;
+        const remainingTime = Math.max(0, 20 - elapsed);
+        const progress = Math.min(elapsed / 20, 0.99); // 最多到 99%，等 onLoad 完成到 100%
+
+        return {
+          ...prev,
+          processedSplats: Math.floor(progress * 100),
+          totalSplats: 100,
+          estimatedTimeRemaining: remainingTime,
+        };
+      });
+    }, 100);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [lodProgress.isProcessing]);
 
   const handleResetPerformance = useCallback(() => {
     setPerformance(DEFAULT_PERFORMANCE_SETTINGS);
@@ -368,6 +411,7 @@ function App() {
       <Canvas dpr={performance.pixelRatio} gl={{ antialias: false }}>
         <ViewerScene
           onFpsChange={setFps}
+          onLodProgress={handleLodProgress}
           onRendererReady={setRenderer}
           performance={performance}
           splatUrl={splatUrl}
@@ -391,7 +435,7 @@ function App() {
         downloadProgress={downloadProgress}
         fileInputRef={fileInputRef}
         formatSpeed={formatSpeed}
-        onResetSplat={handleResetSplat}
+        lodProgress={lodProgress}
         onSplatUpload={handleSplatUpload}
         onUploadClick={handleUploadClick}
         onVrToggle={() => void handleVrToggle()}
