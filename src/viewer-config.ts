@@ -102,3 +102,22 @@ export const DEFAULT_DOWNLOAD_PROGRESS: DownloadProgress = {
   isDownloading: false,
   fileName: "",
 };
+
+export type LodProgress = {
+  processedSplats: number;
+  totalSplats: number;
+  isProcessing: boolean;
+  fileName: string;
+  estimatedTimeRemaining: number;
+};
+
+export const DEFAULT_LOD_PROGRESS: LodProgress = {
+  processedSplats: 0,
+  totalSplats: 0,
+  isProcessing: false,
+  fileName: "",
+  estimatedTimeRemaining: 0,
+};
+
+// LoD 处理速度：每 100 万个点需要 4 秒
+export const LOD_PROCESSING_RATE = 1000000 / 4; // splats per second
