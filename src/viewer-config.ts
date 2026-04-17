@@ -37,24 +37,49 @@ export const SPLAT_SECTIONS: SplatSection[] = [
         url: "/assets/splats/butterfly.spz",
       },
       {
-        label: "Cat",
-        name: "cat.spz",
-        url: "/assets/splats/cat.spz",
-      },
-      {
-        label: "2",
+        label: "室内-树-spz",
         name: "2.spz",
         url: "/assets/splats/hometree.spz",
       },
       {
-        label: "3",
+        label: "花-天空",
         name: "3-180.ply",
         url: "/assets/splats/3-180.ply",
       },
       {
-        label: "2",
+        label: "室内-树",
         name: "2.ply",
         url: "/assets/splats/2-export.ply",
+      },
+      {
+        label: "梵高风格室内",
+        name: "梵高风格室内.ply",
+        url: "/assets/splats/梵高风格室内.ply",
+      },
+      {
+        label: "极简建筑空间",
+        name: "极简建筑空间_Choose.ply",
+        url: "/assets/splats/极简建筑空间_Choose.ply",
+      },
+      {
+        label: "色块风格室内",
+        name: "色块风格室内_Choose.ply",
+        url: "/assets/splats/色块风格室内_Choose.ply",
+      },
+      {
+        label: "书架落地窗场景_Choose",
+        name: "书架落地窗场景_Choose.ply",
+        url: "/assets/splats/书架落地窗场景_Choose.ply",
+      },
+      {
+        label: "水彩风格室内",
+        name: "水彩风格室内.ply",
+        url: "/assets/splats/水彩风格室内.ply",
+      },
+      {
+        label: "2",
+        name: "2.sog",
+        url: "/assets/splats/2.sog",
       },
     ],
   },
