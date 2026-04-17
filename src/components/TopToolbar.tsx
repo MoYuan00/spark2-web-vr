@@ -42,7 +42,7 @@ export function TopToolbar({
             </p>
           </div>
           <p className="text-white/60 text-xs">
-            支持上传本地 .spz 文件、点击左侧列表切换场景，并切换到 WebXR
+            支持上传本地 .spz,.sog,.ply 文件、点击左侧列表切换场景，并切换到 WebXR
             预览模式；Quest / Vision Pro 可在 XR 中按住并拖拽移动模型。
           </p>
           <p className="text-white/60 text-xs">
@@ -61,7 +61,7 @@ export function TopToolbar({
         <div className="flex shrink-0 flex-wrap gap-2">
           <input
             ref={fileInputRef}
-            accept=".spz"
+            accept=".spz,.ply,.sog"
             className="hidden"
             onChange={onSplatUpload}
             type="file"
@@ -71,7 +71,7 @@ export function TopToolbar({
             onClick={onUploadClick}
             type="button"
           >
-            上传 SPZ
+            上传 SPZ/PLY/SOG
           </button>
           <button
             className="rounded-full border border-white/15 bg-white/10 px-4 py-2 font-medium text-sm text-white transition hover:bg-white/20"

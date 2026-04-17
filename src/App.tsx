@@ -93,11 +93,11 @@ function App() {
         return;
       }
 
-      if (!file.name.toLowerCase().endsWith(".spz")) {
-        setXrMessage("请选择 .spz 格式的 Gaussian Splat 文件。");
-        event.target.value = "";
-        return;
-      }
+      // if (!file.name.toLowerCase().endsWith(".spz")) {
+      //   setXrMessage("请选择 .spz 格式的 Gaussian Splat 文件。");
+      //   event.target.value = "";
+      //   return;
+      // }
 
       const nextObjectUrl = URL.createObjectURL(file);
       releaseObjectUrl(nextObjectUrl);
