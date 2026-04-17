@@ -27,6 +27,8 @@ export type SplatSection = {
   title: string;
 };
 
+const BASE_URL = import.meta.env.BASE_URL;
+
 export const SPLAT_SECTIONS: SplatSection[] = [
   {
     title: "精选",
@@ -34,22 +36,22 @@ export const SPLAT_SECTIONS: SplatSection[] = [
       {
         label: "Butterfly",
         name: "butterfly.spz",
-        url: "/assets/splats/butterfly.spz",
+        url: `${BASE_URL}assets/splats/butterfly.spz`,
       },
       {
         label: "室内-树-spz",
         name: "2.spz",
-        url: "/assets/splats/hometree.spz",
+        url: `${BASE_URL}assets/splats/hometree.spz`,
       },
       {
         label: "室内-树",
         name: "2.ply",
-        url: "/assets/splats/2-export.ply",
+        url: `${BASE_URL}assets/splats/2-export.ply`,
       },
       {
         label: "2",
         name: "2.sog",
-        url: "/assets/splats/2.sog",
+        url: `${BASE_URL}assets/splats/2.sog`,
       },
     ],
   },
@@ -59,7 +61,7 @@ export const SPLAT_SECTIONS: SplatSection[] = [
       {
         label: "Branzino Amarin",
         name: "branzino-amarin.spz",
-        url: "/assets/splats/food/branzino-amarin.spz",
+        url: `${BASE_URL}assets/splats/food/branzino-amarin.spz`,
       },
     ],
   },
