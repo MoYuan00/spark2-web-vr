@@ -5,6 +5,7 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), basicSsl()],
+  base: "/spark-react-r3f/",
   server: {
     host: "0.0.0.0",
     https: true,

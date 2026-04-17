@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "deploy": "gh-pages -d dist",
     "assets:clean": "node scripts/clean-assets.js",
     "assets:download": "node scripts/download-assets.js",
     "lint": "biome check .",
@@ -29,6 +30,7 @@
     "@types/three": "^0.180.0",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^4.6.0",
+    "gh-pages": "^6.1.1",
     "tailwindcss": "^4.1.7",
     "typescript": "~5.8.3",
     "vite": "^6.3.5"
