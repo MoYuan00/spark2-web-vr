@@ -1,8 +1,10 @@
 import type { ChangeEventHandler, RefObject } from "react";
-import type { XrSessionMode } from "../viewer-config";
+import type { DownloadProgress, XrSessionMode } from "../viewer-config";
 
 type TopToolbarProps = {
+  downloadProgress: DownloadProgress;
   fileInputRef: RefObject<HTMLInputElement | null>;
+  formatSpeed: (bytesPerSecond: number) => string;
   onResetSplat: () => void;
   onSplatUpload: ChangeEventHandler<HTMLInputElement>;
   onUploadClick: () => void;
@@ -15,7 +17,9 @@ type TopToolbarProps = {
 };
 
 export function TopToolbar({
+  downloadProgress,
   fileInputRef,
+  formatSpeed,
   onResetSplat,
   onSplatUpload,
   onUploadClick,
@@ -26,9 +30,29 @@ export function TopToolbar({
   xrMode,
   xrToggleDisabled,
 }: TopToolbarProps) {
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB"];
+    const k = 1024;
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / k ** i).toFixed(2))} ${units[i]}`;
+  };
+
+  const progressPercent =
+    downloadProgress.total > 0
+      ? Math.round((downloadProgress.loaded / downloadProgress.total) * 100)
+      : 0;
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-4 pr-4 pl-4 sm:pr-[22rem] sm:pl-80">
-      <div className="pointer-events-auto flex w-full max-w-xl flex-col gap-4 rounded-2xl border border-white/15 bg-black/60 p-4 shadow-2xl backdrop-blur-md sm:flex-row sm:items-end sm:justify-between">
+      <div className="pointer-events-auto relative flex w-full max-w-xl flex-col gap-4 rounded-2xl border border-white/15 bg-black/60 p-4 shadow-2xl backdrop-blur-md sm:flex-row sm:items-end sm:justify-between">
+        {downloadProgress.isDownloading && (
+          <div className="absolute inset-x-0 top-0 h-1 w-full overflow-hidden rounded-t-2xl">
+            <div
+              className="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 transition-all duration-300 ease-out"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        )}
         <div className="space-y-2">
           <p className="font-semibold text-cyan-300 text-sm tracking-wide">
             Spark SPZ 预览
@@ -53,6 +77,29 @@ export function TopToolbar({
                 : "检测到沉浸式 VR 支持"
               : "当前浏览器/设备暂不可用"}
           </p>
+          {downloadProgress.isDownloading && (
+            <div className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 p-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate font-medium text-cyan-200 text-xs">
+                  {downloadProgress.fileName}
+                </span>
+                <span className="shrink-0 font-semibold text-cyan-300 text-xs">
+                  {progressPercent}%
+                </span>
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-2 text-xs">
+                <span className="text-cyan-100/70">
+                  {formatBytes(downloadProgress.loaded)} /{" "}
+                  {formatBytes(downloadProgress.total)}
+                </span>
+                {downloadProgress.speed > 0 && (
+                  <span className="font-medium text-emerald-300">
+                    {formatSpeed(downloadProgress.speed)}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
           {xrMessage ? (
             <p className="text-amber-300 text-xs">{xrMessage}</p>
           ) : null}
