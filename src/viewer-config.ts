@@ -86,3 +86,19 @@ export type XrSessionMode = (typeof XR_SESSION_MODES)[number];
 export const XR_SESSION_OPTIONS: XRSessionInit = {
   optionalFeatures: ["local-floor", "bounded-floor", "hand-tracking", "layers"],
 };
+
+export type DownloadProgress = {
+  loaded: number;
+  total: number;
+  speed: number;
+  isDownloading: boolean;
+  fileName: string;
+};
+
+export const DEFAULT_DOWNLOAD_PROGRESS: DownloadProgress = {
+  loaded: 0,
+  total: 0,
+  speed: 0,
+  isDownloading: false,
+  fileName: "",
+};
